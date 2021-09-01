@@ -10,6 +10,11 @@ const io = require('socket.io')(server, {
     origin: '*',
   }
 });
+
+const { MongoClient } = require('mongodb');
+const uri = "mongodb+srv://Radu:masina123@chessdb.vifvf.mongodb.net/login?retryWrites=true&w=majority";
+const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+
 var linkID1 = {};
 var linkID2 = {};
 var id = '';
@@ -19,6 +24,19 @@ var jucatori = [];
 var cod;
 var tot = {};
 io.on('connection', (socket) => {
+  socket.on('newUser', (userInformation) =>{
+    client.connect(err => {
+      const db = client.db("Sign-up").collection("Users");
+      collection.insertOne(
+        { "Username" : userInformation.username,
+          "Email": userInformation.email,
+          "Password": userInformation.password
+        }
+      );
+      // perform actions on the collection object
+    });
+    console.log(userInformation);
+  });
   socket.on('link', (cod) => {
     socket.join(cod);
     id = socket.id;
