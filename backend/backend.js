@@ -24,10 +24,12 @@ var jucatori = [];
 var cod;
 var tot = {};
 io.on('connection', (socket) => {
+  var ip = socket.conn.remoteAddress;
+  console.log(ip);
   socket.on('newUser', (userInformation) =>{
     client.connect(err => {
-      const db = client.db("Sign-up").collection("Users");
-      collection.insertOne(
+      const db = client.db("Users").collection("UEP");
+      db.insertOne(
         { "Username" : userInformation.username,
           "Email": userInformation.email,
           "Password": userInformation.password
