@@ -15,6 +15,7 @@ const { MongoClient } = require('mongodb');
 const uri = "mongodb+srv://Radu:masina123@chessdb.vifvf.mongodb.net/login?retryWrites=true&w=majority";
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
+  //NOTE: Web Workers wrap the response in an object.
 var linkID1 = {};
 var linkID2 = {};
 var id = '';
@@ -23,9 +24,10 @@ var history;
 var jucatori = [];
 var cod;
 var tot = {};
+var timpID1 = {};
+var timpID2 = {};
 io.on('connection', (socket) => {
   var ip = socket.conn.remoteAddress;
-  console.log(ip);
   socket.on('newUser', (userInformation) =>{
     client.connect(err => {
       const db = client.db("Users").collection("UEP");
@@ -37,9 +39,10 @@ io.on('connection', (socket) => {
       );
       // perform actions on the collection object
     });
-    console.log(userInformation);
   });
   socket.on('link', (cod) => {
+    timpID1[cod] = 0;
+    timpID2[cod] = 0;
     socket.join(cod);
     id = socket.id;
     var room = io.sockets.adapter.rooms.get(cod).size;
@@ -57,9 +60,7 @@ io.on('connection', (socket) => {
       io.to(linkID2[cod]).emit('link', cod);
       io.to(linkID2[cod]).emit('link', culoare);
     }
-    console.log(linkID1[cod]);
-    console.log(linkID2[cod]);
-    console.log(room);
+
     if( room < 3 && id != linkID1[cod] && id != linkID2[cod]){
       var once = 1;
       if(!io.sockets.adapter.rooms.get(cod).has(linkID1[cod])){
@@ -86,6 +87,22 @@ io.on('connection', (socket) => {
     if(socket.id == linkID2[adresa] && room == 2)
     io.to(linkID1[adresa]).emit('mutare', move);
   });
+  socket.on('timer', (miliseconds) => {
+    if(socket.id == linkID1[adresa]){
+    timpID1[adresa] = miliseconds;
+    console.log("albul are in plus " + miliseconds);
+    //porneste timer ul negrului, deci timpID1 este plusul de la timpul negrului
+    io.to(linkID1[adresa]).emit('timer', {time : timpID2[adresa], firstop: true});
+    io.to(linkID2[adresa]).emit('timer', {time : timpID2[adresa], firstop: false});
+    }else{
+      //porneste timer ul albului, deci timpID2 este plusul de la timpul albului
+      console.log("negrul are in plus " + miliseconds);
+      timpID2[adresa] = miliseconds;
+      io.to(linkID1[adresa]).emit('timer', {time : timpID1[adresa], firstop: false});
+      io.to(linkID2[adresa]).emit('timer', {time : timpID1[adresa], firstop: true});
+    }
+
+  })
   socket.on('history', (data) =>{
     adresa = data.link;
     history = data.archive;
