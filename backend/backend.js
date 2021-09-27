@@ -21,7 +21,7 @@ var linkID2 = {};
 var id = '';
 var adresa = '';
 var history;
-var jucatori = [];
+var jucatori = [ [], [], [], [], [], [], [], [], [], [], [], [] ];
 var cod;
 var tot = {};
 var timpID1 = {};
@@ -113,15 +113,22 @@ io.on('connection', (socket) => {
       io.to(linkID1[adresa]).emit('history', history);
     }
   });
-  socket.on('cautare', (nimic) =>{
+  //searching for potential opponent
+  socket.on('cautare', (gameInformation) =>{
     id1 = socket.id;
-    if(jucatori.length == 0){
-      jucatori.push(id1);
+    var id2;
+    var color = gameInformation.color;
+    var time = gameInformation.time;
+    var gameType = whatGame(color, time);
+    if(jucatori[gameType].length == 0){
+      jucatori[gameType].push(id1);
+      console.log('a intrat primul');
     }else{
-      var id2 = jucatori.shift();
+      id2 = jucatori[gameType].shift();
       cod = genereaza();
       linkID1[cod] = id1;
       linkID2[cod] = id2;
+      console.log('a intrat al doilea');
       io.to(id1).emit('gasit', cod);
       io.to(id2).emit('gasit', cod);
     }
@@ -130,6 +137,51 @@ io.on('connection', (socket) => {
 server.listen(4000, () => {
   console.log('listening on *:4000');
 });
+function whatGame(color, time){
+  var number;
+  if(color == 'r'){
+    if(time == '1'){
+      number = 0; return number;
+    }
+    if(time == '5'){
+      number = 1; return number;
+    }
+    if(time == '10'){
+      number = 2; return number;
+    }
+    if(time == '30'){
+      number = 3; return number;
+    }
+  }else{
+    if(color == 'w'){
+      if(time == '1'){
+        number = 4; return number;
+      }
+      if(time == '5'){
+        number = 5; return number;
+      }
+      if(time == '10'){
+        number = 6; return number;
+      }
+      if(time == '30'){
+        number = 7; return number;
+      }
+    }else{
+      if(time == '1'){
+        number = 8; return number;
+      }
+      if(time == '5'){
+        number = 9; return number;
+      }
+      if(time == '10'){
+        number = 10; return number;
+      }
+      if(time == '30'){
+        number = 11; return number;
+      }
+    }
+  }
+}
 function genereaza() {
   var link1 = '';
   var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
