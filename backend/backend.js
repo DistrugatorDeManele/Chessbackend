@@ -14,6 +14,8 @@ const io = require('socket.io')(server, {
 const { MongoClient } = require('mongodb');
 const uri = "mongodb+srv://Radu:masina123@chessdb.vifvf.mongodb.net/login?retryWrites=true&w=majority";
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+
+  //NOTE: Web Workers wrap the response in an object.
 // link ID1 and linkID2 offer the id from an existing room
 var linkID1 = {};
 var linkID2 = {};
@@ -24,85 +26,51 @@ var history;
 // waiting room for players
 var jucatori = [ [], [], [], [], [], [], [], [], [], [], [], [] ];
 var cod;
+var tot = {};
 var roomInfo = {};
 var timpID1 = {};
 var timpID2 = {};
 io.on('connection', (socket) => {
-  socket.on('newUser', (userInformation) =>{
-    client.connect(err => {
-      const db = client.db("Users").collection("UEP");
-      db.insertOne(
-        { "Username" : userInformation.username,
-          "Email": userInformation.email,
-          "Password": userInformation.password
-        }
-      );
-      // perform actions on the collection object
-    });
-  });
-  socket.on('link', (cod) => {
+  socket.on('link', (cod) =>{
+    socket.join(cod);
+    id = socket.id;
     timpID1[cod] = 0;
     timpID2[cod] = 0;
-    socket.join(cod);
     var room = io.sockets.adapter.rooms.get(cod).size;
-    var ids = io.sockets.adapter.rooms.get(cod);//.has(linkID1[cod])
-    console.log(ids);
-    if(socket.id == linkID1[cod]){
+    if(id == linkID1[cod]){
       io.to(linkID1[cod]).emit('link', {info: gameInfo[cod], youAre: 'p1'});
     }
-    if(socket.id == linkID2[cod]){
-      io.to(linkID2[cod]).emit('link', {info: gameInfo[cod], youAre: 'p2'});
-    }
-    if(socket.id != linkID1[cod] && socket.id != linkID2[cod]){
-     //checking who LEFT
-     if(!io.sockets.adapter.rooms.get(cod).has(linkID1[cod])){
-        linkID1[cod] = socket.id;
-        io.to(linkID1[cod]).emit('roomInformation', {info: roomInfo[cod], youAre: gameInfo[cod].player1});
-     }
-     if(!io.sockets.adapter.rooms.get(cod).has(linkID2[cod])){
-        linkID2[cod] = socket.id;
-        io.to(linkID2[cod]).emit('roomInformation', {info: roomInfo[cod], youAre: gameInfo[cod].player2});
-     }
+    if(id == linkID2[cod]){
+      io.to(linkID2[cod]).emit('link', {info: gameInfo[cod], youAre: 'p2'})
     }
   });
   socket.on('mutarecod', (link) => {
     adresa = link;
   });
   socket.on('mutare', (info) => {
-    var room = io.sockets.adapter.rooms.get(adresa).size;
     roomInfo[adresa] = info;
-    if(socket.id == linkID1[adresa] && room == 2)
-    io.to(linkID2[adresa]).emit('mutare', info);
-    if(socket.id == linkID2[adresa] && room == 2)
-    io.to(linkID1[adresa]).emit('mutare', info);
+    if(socket.id == linkID1[adresa]){
+      io.to(linkID2[adresa]).emit('mutare', info);
+    }
+    if(socket.id == linkID2[adresa]){
+      io.to(linkID1[adresa]).emit('mutare', info);
+    }
   });
   socket.on('timer', (miliseconds) => {
     if(socket.id == linkID1[adresa]){
-    timpID2[adresa] = miliseconds;
-    console.log("albul are in plus " + miliseconds);
-    //porneste timer ul negrului, deci timpID1 este plusul de la timpul negrului
-    io.to(linkID1[adresa]).emit('timer', {time : timpID1[adresa], firstop: true});
-    io.to(linkID2[adresa]).emit('timer', {time : timpID1[adresa], firstop: false});
-    }else{
-      //porneste timer ul albului, deci timpID2 este plusul de la timpul albului
-      console.log("negrul are in plus " + miliseconds);
       timpID1[adresa] = miliseconds;
-      io.to(linkID1[adresa]).emit('timer', {time : timpID2[adresa], firstop: false});
-      io.to(linkID2[adresa]).emit('timer', {time : timpID2[adresa], firstop: true});
+      io.to(linkID1[adresa]).emit('timer', {time : timpID2[adresa], firstop: true});
+      io.to(linkID2[adresa]).emit('timer', {time : timpID2[adresa], firstop: false});
+    }else{
+      timpID2[adresa] = miliseconds;
+      io.to(linkID1[adresa]).emit('timer', {time : timpID1[adresa], firstop: false});
+      io.to(linkID2[adresa]).emit('timer', {time : timpID1[adresa], firstop: true});
     }
   })
-  socket.on('history', (data) =>{
-    adresa = data.link;
-    history = data.archive;
-    if(linkID1[adresa] == socket.id){
-      io.to(linkID2[adresa]).emit('history', history);
-    }
-    if(linkID2[adresa] == socket.id){
-      io.to(linkID1[adresa]).emit('history', history);
-    }
-  });
   //searching for potential opponent
   socket.on('cautare', (gameInformation) =>{
+    id1 = socket.id;
+    var id2;
     id2 = socket.id;
     var id1 = 'da';
     var color = gameInformation.color;
@@ -132,6 +100,7 @@ io.on('connection', (socket) => {
             foundOpponent = true, id1 = jucatori[gameType + 4].shift(), joinGame(id1, id2, gameType, 'b', 'w');
         //if player is black, look for white or random opponent of the same time
         }else{
+      id2 = jucatori[gameType].shift();
           //looking for white color opponent
           if(jucatori[gameType - 4].length > 0)     
             foundOpponent = true, id1 = jucatori[gameType - 4].shift(), joinGame(id1, id2, gameType, 'w', 'b');  //get both ids and redirect them to the game, same for next if
@@ -149,6 +118,7 @@ function joinGame(id1, id2, timeFormat, colorPlayer1, colorPlayer2){
   cod = genereaza();
   linkID1[cod] = id1;
   linkID2[cod] = id2;
+  console.log('a intrat al doilea');
   if(colorPlayer1 == 'r' && colorPlayer2 == 'r'){
     var colors = transformRandom(colorPlayer1, colorPlayer2);
     colorPlayer1 = colors[0];
@@ -156,7 +126,6 @@ function joinGame(id1, id2, timeFormat, colorPlayer1, colorPlayer2){
   }
   colorPlayer1 = colorString(colorPlayer1);
   colorPlayer2 = colorString(colorPlayer2);
-  console.log(timeFormat);
   var time = changeFormat(timeFormat);
   gameInfo[cod] = {player1: colorPlayer1, player2: colorPlayer2, time: time}
   io.to(id1).emit('gasit', cod);
