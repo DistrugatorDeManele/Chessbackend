@@ -49,6 +49,7 @@ io.on('connection', (socket) => {
   });
   socket.on('mutare', (info) => {
     roomInfo[adresa] = info;
+    console.log(info.timestamp_unix);
     if(socket.id == linkID1[adresa]){
       io.to(linkID2[adresa]).emit('mutare', info);
     }
@@ -130,8 +131,7 @@ function joinGame(id1, id2, timeFormat, colorPlayer1, colorPlayer2){
   gameInfo[cod] = {player1: colorPlayer1, player2: colorPlayer2, time: time}
   io.to(id1).emit('gasit', cod);
   io.to(id2).emit('gasit', cod);
-  //console.log(id1);
-  //console.log(id2);
+  
 }
 function transformRandom(color1, color2){
   var decider = Math.random();
