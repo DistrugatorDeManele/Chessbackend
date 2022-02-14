@@ -30,42 +30,79 @@ var tot = {};
 var roomInfo = {};
 var timpID1 = {};
 var timpID2 = {};
+var test = 0;
 io.on('connection', (socket) => {
   socket.on('link', (cod) =>{
     socket.join(cod);
     id = socket.id;
     timpID1[cod] = 0;
     timpID2[cod] = 0;
-    var room = io.sockets.adapter.rooms.get(cod).size;
-    if(id == linkID1[cod]){
-      io.to(linkID1[cod]).emit('link', {info: gameInfo[cod], youAre: 'p1'});
+    var size = io.sockets.adapter.rooms.get(cod).size;
+   if(io.sockets.adapter.rooms.get(cod).has(linkID1[cod]) == false && size == 2 && test >= 2){
+       linkID1[cod] = socket.id;
+       io.to(linkID1[cod]).emit('link', {refresh: gameInfo[cod].refresh, player1: gameInfo[cod].player1, 
+       player2: gameInfo[cod].player2, blackTimeMs: gameInfo[cod].blackTimeMs,
+       whiteTimeMs:gameInfo[cod].whiteTimeMs,
+       youAre: 'p1', room: roomInfo[cod]});
+     }
+    if(io.sockets.adapter.rooms.get(cod).has(linkID2[cod]) == false && size == 2 && test >= 2){
+       linkID2[cod] = socket.id;
+       io.to(linkID2[cod]).emit('link', {refresh: gameInfo[cod].refresh, player1: gameInfo[cod].player1,
+       player2: gameInfo[cod].player2, blackTimeMs: gameInfo[cod].blackTimeMs,
+       whiteTimeMs:gameInfo[cod].whiteTimeMs,
+       youAre: 'p2', room: roomInfo[cod]});
+   }
+    if(id == linkID1[cod] && test < 2){
+      test++;
+      io.to(linkID1[cod]).emit('link', {refresh: gameInfo[cod].refresh, player1: gameInfo[cod].player1, player2: gameInfo[cod].player2,
+      youAre: 'p1', room: roomInfo[cod], time: gameInfo[cod].time});
     }
-    if(id == linkID2[cod]){
-      io.to(linkID2[cod]).emit('link', {info: gameInfo[cod], youAre: 'p2'})
+    if(id == linkID2[cod] && test < 2){
+      test++;
+      io.to(linkID2[cod]).emit('link', {refresh: gameInfo[cod].refresh, player1: gameInfo[cod].player1, player2: gameInfo[cod].player2,
+      youAre: 'p2', room: roomInfo[cod], time: gameInfo[cod].time})
     }
   });
+
   socket.on('mutarecod', (link) => {
     adresa = link;
-  });
+  });//conectat cu socket.on('mutare'), cu scopul de a stii de la ce camera vine mutarea
   socket.on('mutare', (info) => {
     roomInfo[adresa] = info;
-    console.log(info.timestamp_unix);
+    gameInfo[adresa].refresh = 'true';
     if(socket.id == linkID1[adresa]){
-      io.to(linkID2[adresa]).emit('mutare', info);
+      io.to(linkID2[adresa]).emit('mutare', {information: info, blackTimeMs: gameInfo[adresa].blackTimeMs,
+        whiteTimeMs:gameInfo[adresa].whiteTimeMs});
     }
     if(socket.id == linkID2[adresa]){
-      io.to(linkID1[adresa]).emit('mutare', info);
+      io.to(linkID1[adresa]).emit('mutare', {information: info, blackTimeMs: gameInfo[adresa].blackTimeMs,
+        whiteTimeMs:gameInfo[adresa].whiteTimeMs});
     }
   });
   socket.on('timer', (miliseconds) => {
-    if(socket.id == linkID1[adresa]){
-      timpID1[adresa] = miliseconds;
-      io.to(linkID1[adresa]).emit('timer', {time : timpID2[adresa], firstop: true});
-      io.to(linkID2[adresa]).emit('timer', {time : timpID2[adresa], firstop: false});
-    }else{
-      timpID2[adresa] = miliseconds;
-      io.to(linkID1[adresa]).emit('timer', {time : timpID1[adresa], firstop: false});
-      io.to(linkID2[adresa]).emit('timer', {time : timpID1[adresa], firstop: true});
+    if(miliseconds.color == 'w'){
+      clearInterval(gameInfo[adresa].white_interval);
+    }
+    if(miliseconds.color == 'b'){
+      clearInterval(gameInfo[adresa].black_interval);
+    }
+    io.to(linkID1[adresa]).emit('timer', {blackTimeMs: gameInfo[adresa].blackTimeMs,
+      whiteTimeMs:gameInfo[adresa].whiteTimeMs, color: miliseconds.color, delay: miliseconds.delay});
+    io.to(linkID2[adresa]).emit('timer', {blackTimeMs: gameInfo[adresa].blackTimeMs,
+      whiteTimeMs:gameInfo[adresa].whiteTimeMs, color: miliseconds.color, delay: miliseconds.delay});
+    if(miliseconds.color == 'b'){
+      gameInfo[adresa].start_white = Date.now();
+      gameInfo[adresa].white_interval = setInterval(() =>{
+        gameInfo[adresa].whiteTimeMs = gameInfo[adresa].whiteTimeMs - (Date.now() - gameInfo[adresa].start_white);
+        gameInfo[adresa].start_white = Date.now();
+      }, 30)
+    }
+    if(miliseconds.color == 'w'){
+      gameInfo[adresa].start_black = Date.now();
+      gameInfo[adresa].black_interval = setInterval(() =>{
+        gameInfo[adresa].blackTimeMs = gameInfo[adresa].blackTimeMs - (Date.now() - gameInfo[adresa].start_black);
+        gameInfo[adresa].start_black = Date.now();
+      }, 30)
     }
   })
   //searching for potential opponent
@@ -119,7 +156,6 @@ function joinGame(id1, id2, timeFormat, colorPlayer1, colorPlayer2){
   cod = genereaza();
   linkID1[cod] = id1;
   linkID2[cod] = id2;
-  console.log('a intrat al doilea');
   if(colorPlayer1 == 'r' && colorPlayer2 == 'r'){
     var colors = transformRandom(colorPlayer1, colorPlayer2);
     colorPlayer1 = colors[0];
@@ -128,7 +164,9 @@ function joinGame(id1, id2, timeFormat, colorPlayer1, colorPlayer2){
   colorPlayer1 = colorString(colorPlayer1);
   colorPlayer2 = colorString(colorPlayer2);
   var time = changeFormat(timeFormat);
-  gameInfo[cod] = {player1: colorPlayer1, player2: colorPlayer2, time: time}
+  console.log(time);
+  gameInfo[cod] = {refresh: 'false', player1: colorPlayer1, player2: colorPlayer2, time: time, blackTimeMs: time*60000,
+  whiteTimeMs: time*60000, white_interval: 0, black_interval: 0, start_white: 0, start_black: 0, time: time};
   io.to(id1).emit('gasit', cod);
   io.to(id2).emit('gasit', cod);
   
