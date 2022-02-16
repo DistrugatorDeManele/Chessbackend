@@ -20,6 +20,7 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 var linkID1 = {};
 var linkID2 = {};
 var gameInfo = {};
+var Both = {};
 var id = '';
 var adresa = '';
 var history;
@@ -30,7 +31,6 @@ var tot = {};
 var roomInfo = {};
 var timpID1 = {};
 var timpID2 = {};
-var test = 0;
 io.on('connection', (socket) => {
   socket.on('link', (cod) =>{
     socket.join(cod);
@@ -38,36 +38,39 @@ io.on('connection', (socket) => {
     timpID1[cod] = 0;
     timpID2[cod] = 0;
     var size = io.sockets.adapter.rooms.get(cod).size;
-   if(io.sockets.adapter.rooms.get(cod).has(linkID1[cod]) == false && size == 2 && test >= 2){
+   if(io.sockets.adapter.rooms.get(cod).has(linkID1[cod]) == false && size == 2){
+       console.log('am intrat in 1');
        linkID1[cod] = socket.id;
        io.to(linkID1[cod]).emit('link', {refresh: gameInfo[cod].refresh, player1: gameInfo[cod].player1, 
        player2: gameInfo[cod].player2, blackTimeMs: gameInfo[cod].blackTimeMs,
        whiteTimeMs:gameInfo[cod].whiteTimeMs,
        youAre: 'p1', room: roomInfo[cod]});
      }
-    if(io.sockets.adapter.rooms.get(cod).has(linkID2[cod]) == false && size == 2 && test >= 2){
+    if(io.sockets.adapter.rooms.get(cod).has(linkID2[cod]) == false && size == 2){
+       console.log('am intrat in 2');
        linkID2[cod] = socket.id;
        io.to(linkID2[cod]).emit('link', {refresh: gameInfo[cod].refresh, player1: gameInfo[cod].player1,
        player2: gameInfo[cod].player2, blackTimeMs: gameInfo[cod].blackTimeMs,
        whiteTimeMs:gameInfo[cod].whiteTimeMs,
        youAre: 'p2', room: roomInfo[cod]});
    }
-    if(id == linkID1[cod] && test < 2){
-      test++;
-      io.to(linkID1[cod]).emit('link', {refresh: gameInfo[cod].refresh, player1: gameInfo[cod].player1, player2: gameInfo[cod].player2,
+    if(id == linkID1[cod] && Both[cod] != 2){
+      console.log('am intrat in 3');
+      io.to(linkID1[cod]).emit('link', {refresh: gameInfo[cod].refresh, player1: gameInfo[cod].player1, 
+      player2: gameInfo[cod].player2,
       youAre: 'p1', room: roomInfo[cod], time: gameInfo[cod].time});
+      Both[cod]++;
     }
-    if(id == linkID2[cod] && test < 2){
-      test++;
-      io.to(linkID2[cod]).emit('link', {refresh: gameInfo[cod].refresh, player1: gameInfo[cod].player1, player2: gameInfo[cod].player2,
+    if(id == linkID2[cod] && Both[cod] != 2){
+      console.log('am intrat in 4');
+      io.to(linkID2[cod]).emit('link', {refresh: gameInfo[cod].refresh, player1: gameInfo[cod].player1, 
+      player2: gameInfo[cod].player2,
       youAre: 'p2', room: roomInfo[cod], time: gameInfo[cod].time})
+      Both[cod]++;
     }
   });
-
-  socket.on('mutarecod', (link) => {
-    adresa = link;
-  });//conectat cu socket.on('mutare'), cu scopul de a stii de la ce camera vine mutarea
   socket.on('mutare', (info) => {
+    var adresa = info.link;
     roomInfo[adresa] = info;
     gameInfo[adresa].refresh = 'true';
     if(socket.id == linkID1[adresa]){
@@ -80,6 +83,7 @@ io.on('connection', (socket) => {
     }
   });
   socket.on('timer', (miliseconds) => {
+    var adresa = miliseconds.link;
     if(miliseconds.color == 'w'){
       clearInterval(gameInfo[adresa].white_interval);
     }
@@ -107,10 +111,10 @@ io.on('connection', (socket) => {
   })
   //searching for potential opponent
   socket.on('cautare', (gameInformation) =>{
+    var id1;
     id1 = socket.id;
     var id2;
     id2 = socket.id;
-    var id1 = 'da';
     var color = gameInformation.color;
     var time = gameInformation.time;
     var gameType = whatGame(color, time);
@@ -120,35 +124,36 @@ io.on('connection', (socket) => {
       //if player is random color, look for random, white, or black color opponent of the same time
         //looking for random color opponent
         if(jucatori[gameType].length > 0)     
-          foundOpponent = true, id1 = jucatori[gameType].shift(), joinGame(id1, id2, gameType, 'r', 'r');  //get both ids and redirect them to the game, same for next 2 ifs
+          foundOpponent = true, id1 = jucatori[gameType].shift(),console.log(id1), joinGame(id1, id2, gameType, 'r', 'r');  //get both ids and redirect them to the game, same for next 2 ifs
         //looking for white color opponent
         if(jucatori[gameType + 4].length > 0)
-          foundOpponent = true, id1 = jucatori[gameType + 4].shift(), joinGame(id1, id2, gameType, 'w', 'b');
+          foundOpponent = true, id1 = jucatori[gameType + 4].shift(),console.log(id1), joinGame(id1, id2, gameType, 'w', 'b');
         //looking for black color opponent
         if(jucatori[gameType + 8]. length > 0)
-          foundOpponent = true, id1 = jucatori[gameType + 8].shift(), joinGame(id1, id2, gameType, 'b', 'w');
+          foundOpponent = true, id1 = jucatori[gameType + 8].shift(),console.log(id1), joinGame(id1, id2, gameType, 'b', 'w');
       }else{
         //if player is white, look for white or random opponent of the same time
         if(gameType < 8){
           //looking for random color opponent
           if(jucatori[gameType - 4].length > 0)     
-            foundOpponent = true, id1 = jucatori[gameType - 4].shift(), joinGame(id1, id2, gameType, 'b', 'w');  //get both ids and redirect them to the game, same for next if
+            foundOpponent = true, id1 = jucatori[gameType - 4].shift(),console.log(id1), joinGame(id1, id2, gameType, 'b', 'w');  //get both ids and redirect them to the game, same for next if
           //looking for black color opponent
           if(jucatori[gameType + 4].length > 0)
-            foundOpponent = true, id1 = jucatori[gameType + 4].shift(), joinGame(id1, id2, gameType, 'b', 'w');
+            foundOpponent = true, id1 = jucatori[gameType + 4].shift(),console.log(id1), joinGame(id1, id2, gameType, 'b', 'w');
         //if player is black, look for white or random opponent of the same time
         }else{
-      id2 = jucatori[gameType].shift();
+          id2 = jucatori[gameType].shift();
           //looking for white color opponent
           if(jucatori[gameType - 4].length > 0)     
-            foundOpponent = true, id1 = jucatori[gameType - 4].shift(), joinGame(id1, id2, gameType, 'w', 'b');  //get both ids and redirect them to the game, same for next if
+            foundOpponent = true, id1 = jucatori[gameType - 4].shift(),console.log(id1), joinGame(id1, id2, gameType, 'w', 'b');  //get both ids and redirect them to the game, same for next if
           //looking for random color opponent
           if(jucatori[gameType - 8].length > 0)     
-            foundOpponent = true, id1 = jucatori[gameType - 8].shift(), joinGame(id1, id2, gameType, 'w', 'b'); 
+            foundOpponent = true, id1 = jucatori[gameType - 8].shift(),console.log(id1), joinGame(id1, id2, gameType, 'w', 'b'); 
         }
       }
       if(foundOpponent == false){
         jucatori[gameType].push(id2);
+        console.log(id2);
       }
   });
 });
@@ -161,10 +166,10 @@ function joinGame(id1, id2, timeFormat, colorPlayer1, colorPlayer2){
     colorPlayer1 = colors[0];
     colorPlayer2 = colors[1];
   }
+  Both[cod] = 0;
   colorPlayer1 = colorString(colorPlayer1);
   colorPlayer2 = colorString(colorPlayer2);
   var time = changeFormat(timeFormat);
-  console.log(time);
   gameInfo[cod] = {refresh: 'false', player1: colorPlayer1, player2: colorPlayer2, time: time, blackTimeMs: time*60000,
   whiteTimeMs: time*60000, white_interval: 0, black_interval: 0, start_white: 0, start_black: 0, time: time};
   io.to(id1).emit('gasit', cod);
